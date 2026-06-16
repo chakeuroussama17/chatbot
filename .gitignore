@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+venv/
+.env
+*.faiss
+*.pkl
+.DS_Store
+node_modules/

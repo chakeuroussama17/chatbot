@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FAQ Chatbot</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d0f14;
+      --sidebar: #111318;
+      --surface: #1a1d26;
+      --surface2: #21253a;
+      --border: #252836;
+      --accent: #5b7cf6;
+      --accent2: #9b72f7;
+      --text: #e4e6f0;
+      --muted: #6b7094;
+      --success: #3ecf8e;
+      --danger: #f16b6b;
+      --radius: 12px;
+    }
+
+    html, body { height: 100%; overflow: hidden; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    #root { height: 100%; display: flex; flex-direction: column; }
+
+    /* ── TOP NAV (mobile-first) ── */
+    .topnav {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: var(--sidebar);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .logo-box {
+      width: 30px; height: 30px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px; flex-shrink: 0;
+    }
+    .topnav-title { font-size: 14px; font-weight: 700; flex: 1; }
+    .topnav-sub { font-size: 11px; color: var(--muted); }
+
+    .menu-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      color: var(--text);
+      font-size: 18px;
+      cursor: pointer;
+      padding: 4px 10px;
+      line-height: 1;
+    }
+
+    /* ── LAYOUT BELOW NAV ── */
+    .layout {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      width: 260px;
+      flex-shrink: 0;
+      background: var(--sidebar);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: transform 0.25s ease;
+    }
+
+    /* On narrow screens sidebar overlays */
+    @media (max-width: 700px) {
+      .sidebar {
+        position: absolute;
+        top: 0; left: 0; bottom: 0;
+        z-index: 100;
+        transform: translateX(-100%);
+      }
+      .sidebar.open { transform: translateX(0); }
+      .menu-btn { display: flex; }
+    }
+    @media (min-width: 701px) {
+      .menu-btn { display: none; }
+      .sidebar { transform: none !important; }
+    }
+
+    .sidebar-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .sidebar-body::-webkit-scrollbar { width: 3px; }
+    .sidebar-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    .section-label {
+      font-size: 10px; font-weight: 600;
+      letter-spacing: 0.8px; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 8px;
+    }
+
+    .drop-zone {
+      border: 1.5px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 18px 12px;
+      text-align: center;
+      cursor: pointer;
+      position: relative;
+      transition: all 0.2s;
+    }
+    .drop-zone:hover, .drop-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(91,124,246,0.06);
+    }
+    .drop-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+    .drop-zone .dz-icon { font-size: 22px; margin-bottom: 6px; }
+    .drop-zone p { font-size: 12px; color: var(--muted); line-height: 1.5; }
+    .drop-zone strong { color: var(--accent); }
+
+    .file-queue { margin-top: 8px; display: flex; flex-direction: column; gap: 3px; }
+    .fq-item {
+      font-size: 11px; color: var(--muted);
+      display: flex; align-items: center; gap: 6px;
+      padding: 4px 6px; background: var(--surface); border-radius: 6px;
+    }
+    .fq-item span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .ingest-btn {
+      width: 100%; padding: 9px; margin-top: 8px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border: none; border-radius: 8px;
+      color: white; font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: opacity 0.2s;
+    }
+    .ingest-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .ingest-btn:hover:not(:disabled) { opacity: 0.85; }
+
+    .doc-list { display: flex; flex-direction: column; gap: 5px; }
+    .doc-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 7px 9px; background: var(--surface); border-radius: 8px; font-size: 12px;
+    }
+    .doc-item .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); flex-shrink: 0; }
+
+    .sidebar-footer {
+      padding: 12px 14px; border-top: 1px solid var(--border);
+      display: flex; flex-direction: column; gap: 8px; flex-shrink: 0;
+    }
+    .status-row { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--muted); }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .status-dot.on { background: var(--success); animation: pulse 2s infinite; }
+    .status-dot.off { background: var(--muted); }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    .clear-btn {
+      width: 100%; padding: 7px;
+      background: transparent; border: 1px solid var(--border);
+      border-radius: 7px; color: var(--danger); font-size: 12px; cursor: pointer;
+      transition: all 0.15s;
+    }
+    .clear-btn:hover { background: rgba(241,107,107,0.08); border-color: var(--danger); }
+
+    /* ── OVERLAY (mobile, sidebar open) ── */
+    .overlay {
+      display: none;
+      position: absolute; inset: 0; background: rgba(0,0,0,0.5); z-index: 99;
+    }
+    .overlay.show { display: block; }
+
+    /* ── CHAT MAIN ── */
+    .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+
+    .chat-header {
+      padding: 12px 18px; border-bottom: 1px solid var(--border);
+      flex-shrink: 0; display: flex; align-items: center; justify-content: space-between;
+    }
+    .chat-header h2 { font-size: 14px; font-weight: 600; }
+    .chat-header p { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .clr-chat-btn {
+      padding: 5px 12px; background: transparent;
+      border: 1px solid var(--border); border-radius: 7px;
+      color: var(--muted); font-size: 11px; cursor: pointer; white-space: nowrap;
+      transition: all 0.15s;
+    }
+    .clr-chat-btn:hover { border-color: var(--danger); color: var(--danger); }
+
+    .messages {
+      flex: 1; overflow-y: auto;
+      padding: 18px; display: flex; flex-direction: column; gap: 16px;
+    }
+    .messages::-webkit-scrollbar { width: 4px; }
+    .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .empty {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 10px; text-align: center; padding: 40px; color: var(--muted);
+    }
+    .empty .eicon { font-size: 38px; margin-bottom: 4px; }
+    .empty h3 { font-size: 15px; font-weight: 600; color: var(--text); }
+    .empty p { font-size: 13px; line-height: 1.6; max-width: 280px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 8px; }
+    .chip {
+      padding: 6px 13px; background: var(--surface2);
+      border: 1px solid var(--border); border-radius: 20px;
+      font-size: 12px; cursor: pointer; transition: all 0.15s;
+    }
+    .chip:hover { border-color: var(--accent); color: var(--accent); }
+
+    .msg { display: flex; flex-direction: column; gap: 4px; }
+    .msg.user { align-items: flex-end; }
+    .msg.bot  { align-items: flex-start; }
+    .msg-label { font-size: 10px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; padding: 0 4px; }
+    .bubble {
+      padding: 10px 14px; border-radius: var(--radius); font-size: 13px; line-height: 1.65;
+      max-width: min(520px, 85%); white-space: pre-wrap; word-break: break-word;
+    }
+    .msg.user .bubble { background: #1c2b56; border-bottom-right-radius: 3px; }
+    .msg.bot  .bubble { background: var(--surface); border: 1px solid var(--border); border-bottom-left-radius: 3px; }
+
+    .sources { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
+    .src-tag {
+      padding: 3px 9px; background: var(--surface2);
+      border: 1px solid var(--border); border-radius: 20px;
+      font-size: 10px; color: var(--accent); cursor: default;
+    }
+
+    .typing-bubble {
+      display: flex; align-items: center; gap: 4px;
+      padding: 10px 14px; background: var(--surface);
+      border: 1px solid var(--border); border-radius: var(--radius); border-bottom-left-radius: 3px;
+    }
+    .typing-bubble span {
+      width: 6px; height: 6px; border-radius: 50%; background: var(--muted);
+      animation: bounce 1.2s infinite;
+    }
+    .typing-bubble span:nth-child(2) { animation-delay: 0.2s; }
+    .typing-bubble span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
+
+    /* ── INPUT ── */
+    .input-area { padding: 12px 18px; border-top: 1px solid var(--border); flex-shrink: 0; }
+    .input-box {
+      display: flex; gap: 8px; align-items: flex-end;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 8px 12px;
+      transition: border-color 0.2s;
+    }
+    .input-box:focus-within { border-color: var(--accent); }
+    .input-box textarea {
+      flex: 1; background: transparent; border: none; outline: none;
+      color: var(--text); font-size: 13px; resize: none; font-family: inherit;
+      line-height: 1.5; max-height: 120px;
+    }
+    .input-box textarea::placeholder { color: var(--muted); }
+    .send-btn {
+      width: 32px; height: 32px; flex-shrink: 0;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border: none; border-radius: 8px; color: white; font-size: 15px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: opacity 0.2s;
+    }
+    .send-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .hint { font-size: 10px; color: var(--muted); margin-top: 6px; text-align: center; }
+
+    /* ── TOAST ── */
+    .toast {
+      position: fixed; bottom: 20px; right: 20px;
+      padding: 9px 15px; border-radius: 8px; font-size: 12px; font-weight: 500;
+      animation: slideUp 0.25s ease; z-index: 999;
+    }
+    .toast.ok  { background: rgba(62,207,142,0.15); border: 1px solid var(--success); color: var(--success); }
+    .toast.err { background: rgba(241,107,107,0.15); border: 1px solid var(--danger);  color: var(--danger); }
+    @keyframes slideUp { from{transform:translateY(12px);opacity:0} to{transform:translateY(0);opacity:1} }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useRef, useEffect } = React;
+
+const API = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+  ? "http://localhost:8000"
+  : "https://YOUR-BACKEND.railway.app"; // ← replace after deploy
+
+const SUGGESTIONS = [
+  "Summarise this document",
+  "What are the key points?",
+  "List the main topics covered",
+];
+
+const docIcon = n => n?.endsWith(".pdf") ? "📄" : n?.endsWith(".docx") ? "📝" : "📃";
+
+function App() {
+  const [msgs, setMsgs]           = useState([]);
+  const [input, setInput]         = useState("");
+  const [loading, setLoading]     = useState(false);
+  const [files, setFiles]         = useState([]);
+  const [docs, setDocs]           = useState([]);
+  const [dragOver, setDragOver]   = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [connected, setConnected] = useState(false);
+  const [sideOpen, setSideOpen]   = useState(false);
+  const [toast, setToast]         = useState(null);
+  const bottomRef = useRef(null);
+  const taRef     = useRef(null);
+
+  useEffect(() => {
+    fetch(`${API}/`).then(r => r.json()).then(d => {
+      setConnected(true);
+      if (d.docs_loaded > 0) loadDocs();
+    }).catch(() => setConnected(false));
+  }, []);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [msgs, loading]);
+
+  const showToast = (msg, type = "ok") => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const loadDocs = () =>
+    fetch(`${API}/documents`).then(r => r.json())
+      .then(d => setDocs(d.documents || [])).catch(() => {});
+
+  const handleFiles = (incoming) => {
+    const valid = Array.from(incoming).filter(f =>
+      [".pdf", ".txt", ".docx"].some(e => f.name.toLowerCase().endsWith(e))
+    );
+    if (valid.length < incoming.length) showToast("Only PDF, TXT, DOCX allowed", "err");
+    setFiles(prev => [...prev, ...valid]);
+  };
+
+  const ingest = async () => {
+    if (!files.length) return;
+    setUploading(true);
+    const fd = new FormData();
+    files.forEach(f => fd.append("files", f));
+    try {
+      const r = await fetch(`${API}/upload`, { method: "POST", body: fd });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.detail || "Upload failed");
+      showToast(`✓ ${d.details.length} file(s) ingested`);
+      setFiles([]);
+      loadDocs();
+      setSideOpen(false);
+    } catch(e) { showToast(e.message, "err"); }
+    finally { setUploading(false); }
+  };
+
+  const clearAll = async () => {
+    if (!confirm("Clear all documents and chat?")) return;
+    await fetch(`${API}/documents`, { method: "DELETE" });
+    setDocs([]); setMsgs([]);
+    showToast("Cleared");
+  };
+
+  const send = async (text) => {
+    const q = (text || input).trim();
+    if (!q || loading) return;
+    setInput("");
+    if (taRef.current) taRef.current.style.height = "auto";
+    setMsgs(prev => [...prev, { role: "user", content: q }]);
+    setLoading(true);
+
+    const history = msgs.slice(-6).map(m => ({
+      role: m.role === "bot" ? "assistant" : "user",
+      content: m.content,
+    }));
+
+    try {
+      const r = await fetch(`${API}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: q, chat_history: history }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.detail || "Error");
+      setMsgs(prev => [...prev, { role: "bot", content: d.answer, sources: d.sources }]);
+    } catch(e) {
+      setMsgs(prev => [...prev, { role: "bot", content: `⚠️ ${e.message}`, sources: [] }]);
+    } finally { setLoading(false); }
+  };
+
+  const onKey = e => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+  };
+
+  return (
+    <div id="root" style={{height:"100%",display:"flex",flexDirection:"column"}}>
+
+      {/* TOP NAV */}
+      <div className="topnav">
+        <div className="logo-box">🤖</div>
+        <div style={{flex:1}}>
+          <div className="topnav-title">FAQ Chatbot</div>
+          <div className="topnav-sub">RAG-powered assistant</div>
+        </div>
+        <button className="menu-btn" onClick={() => setSideOpen(o => !o)}>☰</button>
+      </div>
+
+      {/* LAYOUT */}
+      <div className="layout">
+
+        {/* Mobile overlay */}
+        <div className={`overlay${sideOpen ? " show" : ""}`} onClick={() => setSideOpen(false)} />
+
+        {/* SIDEBAR */}
+        <div className={`sidebar${sideOpen ? " open" : ""}`}>
+          <div className="sidebar-body">
+
+            {/* Upload */}
+            <div>
+              <div className="section-label">Upload Documents</div>
+              <div
+                className={`drop-zone${dragOver ? " drag-over" : ""}`}
+                onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={e => { e.preventDefault(); setDragOver(false); handleFiles(e.dataTransfer.files); }}
+              >
+                <input type="file" multiple accept=".pdf,.txt,.docx"
+                  onChange={e => handleFiles(e.target.files)} />
+                <div className="dz-icon">📂</div>
+                <p><strong>Drop files here</strong> or click<br/>PDF · TXT · DOCX</p>
+              </div>
+
+              {files.length > 0 && (
+                <div className="file-queue">
+                  {files.map((f, i) => (
+                    <div key={i} className="fq-item">
+                      <span>{docIcon(f.name)}</span>
+                      <span>{f.name}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <button className="ingest-btn" onClick={ingest}
+                disabled={uploading || files.length === 0}>
+                {uploading ? "Ingesting…"
+                  : files.length ? `Ingest ${files.length} File${files.length > 1 ? "s" : ""}`
+                  : "Ingest Files"}
+              </button>
+            </div>
+
+            {/* Loaded docs */}
+            {docs.length > 0 && (
+              <div>
+                <div className="section-label">Loaded Documents ({docs.length})</div>
+                <div className="doc-list">
+                  {docs.map((d, i) => (
+                    <div key={i} className="doc-item">
+                      <span>{docIcon(d)}</span>
+                      <span className="name" title={d}>{d}</span>
+                      <div className="dot" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="sidebar-footer">
+            <div className="status-row">
+              <div className={`status-dot ${connected ? "on" : "off"}`} />
+              {connected ? "Backend connected" : "Backend offline"}
+            </div>
+            {docs.length > 0 && (
+              <button className="clear-btn" onClick={clearAll}>🗑 Clear all documents</button>
+            )}
+          </div>
+        </div>
+
+        {/* CHAT */}
+        <div className="main">
+          <div className="chat-header">
+            <div>
+              <h2>Ask your documents</h2>
+              <p>{docs.length > 0
+                ? `${docs.length} doc(s) loaded · Ask anything`
+                : "Upload documents to get started"}</p>
+            </div>
+            {msgs.length > 0 && (
+              <button className="clr-chat-btn" onClick={() => setMsgs([])}>Clear chat</button>
+            )}
+          </div>
+
+          <div className="messages">
+            {msgs.length === 0 ? (
+              <div className="empty">
+                <div className="eicon">💬</div>
+                <h3>{docs.length === 0 ? "No documents yet" : "Ready to answer"}</h3>
+                <p>{docs.length === 0
+                  ? "Upload documents using the sidebar, then ask anything about them."
+                  : "Your documents are loaded. Ask a question or try one of these:"}</p>
+                {docs.length > 0 && (
+                  <div className="chips">
+                    {SUGGESTIONS.map((s, i) => (
+                      <div key={i} className="chip" onClick={() => send(s)}>{s}</div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              msgs.map((m, i) => (
+                <div key={i} className={`msg ${m.role}`}>
+                  <div className="msg-label">{m.role === "user" ? "You" : "Assistant"}</div>
+                  <div className="bubble">{m.content}</div>
+                  {m.sources?.length > 0 && (
+                    <div className="sources">
+                      {m.sources.map((s, j) => (
+                        <div key={j} className="src-tag" title={s.preview}>
+                          📎 {s.file} · {(s.score * 100).toFixed(0)}%
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+
+            {loading && (
+              <div className="msg bot">
+                <div className="msg-label">Assistant</div>
+                <div className="typing-bubble"><span/><span/><span/></div>
+              </div>
+            )}
+            <div ref={bottomRef} />
+          </div>
+
+          <div className="input-area">
+            <div className="input-box">
+              <textarea
+                ref={taRef}
+                rows={1}
+                placeholder={docs.length === 0 ? "Upload documents first…" : "Ask a question…"}
+                value={input}
+                disabled={loading || docs.length === 0}
+                onChange={e => {
+                  setInput(e.target.value);
+                  e.target.style.height = "auto";
+                  e.target.style.height = e.target.scrollHeight + "px";
+                }}
+                onKeyDown={onKey}
+              />
+              <button className="send-btn"
+                disabled={loading || !input.trim() || docs.length === 0}
+                onClick={() => send()}>↑</button>
+            </div>
+            <div className="hint">Enter to send · Shift+Enter for new line</div>
+          </div>
+        </div>
+      </div>
+
+      {toast && <div className={`toast ${toast.type}`}>{toast.msg}</div>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
